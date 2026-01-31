@@ -1,2 +1,5 @@
 [tools]
 go = "latest"
+buf = "latest"
+protoc-gen-go = "latest"
+protoc-gen-connect-go = "latest"
