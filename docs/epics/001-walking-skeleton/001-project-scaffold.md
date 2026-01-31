@@ -87,16 +87,20 @@ package server
 ```go
 // Package mcp implements the MCP (Model Context Protocol) server.
 //
-// It exposes a single tool, knowledge_query, via stdio transport.
+// It exposes two tools via stdio transport:
+//
+//   - list_knowledge_bases(): returns available knowledge bases
+//   - ask_knowledge_base(question, effort?, knowledge_bases?): queries knowledge bases
+//
 // The MCP server acts as a bridge between AI agents and kb-server,
 // translating MCP tool calls into Unix socket requests.
 //
-// Tool definition:
+// Tool parameters:
 //
-//	knowledge_query(question, effort?, vaults?)
-//	  - question: free-form natural language query
+//	ask_knowledge_base:
+//	  - question: free-form natural language query (required)
 //	  - effort: "low" | "medium" | "high" (default: medium)
-//	  - vaults: optional list of vault names to search
+//	  - knowledge_bases: optional list of knowledge base names to search
 package mcp
 ```
 
@@ -179,8 +183,6 @@ package index
 # Binaries
 /kb-server
 /kb-mcp
-/kb-search
-/kb-index
 *.exe
 
 # Build artifacts
@@ -218,4 +220,3 @@ coverage.html
 ## Notes
 
 - No external dependencies yet; `go.sum` may be empty or absent
-- The `cmd/kb-search/` and `cmd/kb-index/` directories are not created in this epic (they come later in Phase 2-3)
