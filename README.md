@@ -2,6 +2,9 @@
 
 **Your second brain as a service.**
 
+> [!WARNING]
+> This project is a work in progress. APIs, architecture, and features may change significantly.
+
 kb is a semantic search service for Obsidian vaults. It lets any AI agent query your personal knowledge base using natural language - no more fumbling with file paths or hoping the agent finds the right context.
 
 ## The Problem
