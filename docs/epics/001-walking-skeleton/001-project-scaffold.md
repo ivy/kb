@@ -1,13 +1,3 @@
----
-date: 2026-01-31
-type: epic
-status: pending
-parent: "[[Projects/kb/epics/001-walking-skeleton/index]]"
-tags:
-  - kb
-  - walking-skeleton
----
-
 # 1.1 Project Scaffold
 
 ## Goal
