@@ -1,0 +1,53 @@
+// proto/kb/v1/kb.proto
+syntax = "proto3";
+
+package kb.v1;
+
+option go_package = "github.com/ivy/kb/gen/kb/v1;kbv1";
+
+// KnowledgeBaseService provides access to knowledge bases.
+service KnowledgeBaseService {
+  // List returns all available knowledge bases.
+  rpc List(ListRequest) returns (ListResponse);
+
+  // Query searches knowledge bases with a natural language question.
+  rpc Query(QueryRequest) returns (QueryResponse);
+}
+
+// ListRequest is empty - no parameters needed.
+message ListRequest {}
+
+// ListResponse contains available knowledge bases.
+message ListResponse {
+  repeated KnowledgeBase knowledge_bases = 1;
+}
+
+// KnowledgeBase describes an available knowledge base.
+message KnowledgeBase {
+  string name = 1;
+  string description = 2;
+}
+
+// QueryRequest contains the search parameters.
+message QueryRequest {
+  string question = 1;
+  Effort effort = 2;
+  repeated string knowledge_bases = 3; // empty = search all
+}
+
+// Effort controls search depth.
+// EFFORT_UNSPECIFIED is required by buf lint (ENUM_ZERO_VALUE_SUFFIX) and
+// protobuf convention — the wire default for an unset enum field is 0.
+// Application code treats UNSPECIFIED the same as EFFORT_MEDIUM (balanced).
+enum Effort {
+  EFFORT_UNSPECIFIED = 0; // Treated as EFFORT_MEDIUM by the server
+  EFFORT_LOW = 1;         // Quick lookup
+  EFFORT_MEDIUM = 2;      // Balanced (default)
+  EFFORT_HIGH = 3;        // Thorough research
+}
+
+// QueryResponse contains the answer and citations.
+message QueryResponse {
+  string answer = 1;
+  repeated string citations = 2;
+}
