@@ -1,0 +1,29 @@
+# Binaries
+/kb-server
+/kb-mcp
+/kb-search
+/kb-index
+*.exe
+
+# Build artifacts
+/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+*.test
+coverage.out
+coverage.html
+
+# Local config (if any)
+.env
+.env.local
