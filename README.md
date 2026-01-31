@@ -26,7 +26,7 @@ kb provides semantic search over your vault via MCP (Model Context Protocol). An
 > "I need to draft an epic for sandboxed execution. Pull relevant
 >  context from my notes about security conversations and prior art."
 
-[Agent calls knowledge_query]
+[Agent calls ask_knowledge_base]
 
 Based on your notes, here's what I found...
 - Sean discussed container isolation in your 2026-01-15 meeting
@@ -53,7 +53,7 @@ Based on your notes, here's what I found...
 
 1. **kb-server** runs as a daemon, indexing your vault(s) and keeping embeddings up to date
 2. **kb-mcp** is an MCP server that any agent can connect to
-3. Agents call `knowledge_query` with a natural language question
+3. Agents call `list_knowledge_bases` to discover available sources, then `ask_knowledge_base` with a natural language question
 4. kb searches semantically, retrieves relevant notes, and returns a synthesized answer with citations
 
 ## Features
@@ -69,9 +69,7 @@ Based on your notes, here's what I found...
 | Component   | Description                                                  |
 | ----------- | ------------------------------------------------------------ |
 | `kb-server` | Background daemon that handles queries and manages indexing  |
-| `kb-mcp`    | MCP server (stdio transport) exposing `knowledge_query` tool |
-| `kb-search` | CLI for direct semantic search                               |
-| `kb-index`  | CLI for managing vault indexing                              |
+| `kb-mcp`    | MCP server (stdio transport) exposing knowledge base tools   |
 
 ## Tech Stack
 
