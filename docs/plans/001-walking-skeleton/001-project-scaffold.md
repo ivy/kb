@@ -1,4 +1,4 @@
-# 1.1 Project Scaffold
+# Project Scaffold
 
 ## Goal
 
