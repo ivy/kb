@@ -8,6 +8,7 @@ import (
 	"os/signal"
 
 	kbmcp "github.com/ivy/kb/internal/mcp"
+	"github.com/ivy/kb/internal/socket"
 )
 
 func main() {
@@ -18,16 +19,14 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	server := kbmcp.NewServer(socketPath())
+	socketPath, err := socket.ResolveSocketPath()
+	if err != nil {
+		log.Fatalf("failed to resolve socket path: %v", err)
+	}
+
+	server := kbmcp.NewServer(socketPath)
 
 	if err := server.Run(ctx); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
-}
-
-func socketPath() string {
-	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
-		return dir + "/kb.sock"
-	}
-	return "/tmp/kb.sock"
 }

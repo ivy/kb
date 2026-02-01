@@ -5,14 +5,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"connectrpc.com/connect"
 	kbv1 "github.com/ivy/kb/gen/kb/v1"
 	"github.com/ivy/kb/gen/kb/v1/kbv1connect"
+	"github.com/ivy/kb/internal/socket"
 )
 
 // shutdownTimeout is the maximum time to wait for in-flight requests
@@ -29,7 +28,7 @@ func New(socketPath string) *Server {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	ln, err := listenSocket(s.socketPath)
+	ln, err := socket.ListenSocket(s.socketPath)
 	if err != nil {
 		return err
 	}
@@ -56,23 +55,6 @@ func (s *Server) Run(ctx context.Context) error {
 		return nil
 	}
 	return err
-}
-
-// listenSocket creates a Unix domain socket at the given path, removing
-// any stale socket file first. It binds atomically — if two processes
-// race, exactly one will succeed and the other will get EADDRINUSE.
-func listenSocket(path string) (net.Listener, error) {
-	// Try to bind first. If it succeeds, there was no stale socket.
-	ln, err := net.Listen("unix", path)
-	if err == nil {
-		return ln, nil
-	}
-
-	// If the path exists but no one is listening, it's stale — remove
-	// and retry. If someone is listening, the retry will fail with
-	// EADDRINUSE, which is the correct behavior.
-	os.Remove(path)
-	return net.Listen("unix", path)
 }
 
 // List returns available knowledge bases.

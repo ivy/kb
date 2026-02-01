@@ -4,11 +4,11 @@ package main
 import (
 	"context"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/ivy/kb/internal/server"
+	"github.com/ivy/kb/internal/socket"
 )
 
 func main() {
@@ -17,15 +17,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	srv := server.New(socketPath())
+	socketPath, err := socket.ResolveSocketPath()
+	if err != nil {
+		log.Fatalf("failed to resolve socket path: %v", err)
+	}
+
+	srv := server.New(socketPath)
 	if err := srv.Run(ctx); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
-}
-
-func socketPath() string {
-	if dir := os.Getenv("XDG_RUNTIME_DIR"); dir != "" {
-		return dir + "/kb.sock"
-	}
-	return "/tmp/kb.sock"
 }
