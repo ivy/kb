@@ -3,3 +3,21 @@ go = "latest"
 buf = "latest"
 protoc-gen-go = "latest"
 protoc-gen-connect-go = "latest"
+python = "latest"
+uv = "latest"
+
+[_.python]
+venv = { path = ".venv", create = true }
+
+[tasks.install-python]
+description = "Install Python dependencies"
+run = """
+  if [ ! -d .venv ]; then
+    uv venv .venv
+  fi
+  uv pip install -r scripts/requirements.txt
+"""
+
+[tasks.count-tokens]
+description = "Count tokens in markdown files (usage: mise run count-tokens <directory>)"
+run = ".venv/bin/python scripts/count_tokens.py \"$@\""
