@@ -7,17 +7,9 @@ How callers interact with KB. Read [indexing.md](indexing.md) for how knowledge 
 Plain HTTP. Text in, Markdown out. No JSON for the query path (Principle #1 — Built for Agents).
 
 ```
-POST /v1/ask          → new session, returns answer + session URL
-POST /v1/sessions/:id/ask/ask  → continue session, returns answer
-GET  /llms.txt          → API discovery for agents
-```
-
-Admin endpoints use JSON where structure is genuinely needed:
-
-```
-POST   /v1/sources      → add a source
-GET    /v1/sources      → list sources
-DELETE /v1/sources/:uri  → remove a source
+POST /v1/ask              → new session, returns answer + session URL
+POST /v1/sessions/:id/ask  → continue session, returns answer
+GET  /llms.txt             → API discovery for agents
 ```
 
 ### /llms.txt
@@ -82,7 +74,7 @@ Four tools. Each has a distinct retrieval pattern — no overlap, no ambiguity a
 Semantic search across all indexed knowledge.
 
 - **Input**: natural language query
-- **Output**: ranked results with provenance metadata only (source URI, file path, heading hierarchy, indexed_at, ref) — no chunk content
+- **Output**: ranked results with provenance metadata only (source URL, file path, heading hierarchy, indexed_at, ref) — no chunk content
 - **Use**: primary retrieval path for open-ended questions
 
 Returns lightweight results so the agent can evaluate relevance from metadata before deciding what to read into context.
@@ -101,7 +93,7 @@ Complements `search` the way ctrl+F complements "find me something about..." Vec
 
 Fetch content from a specific document.
 
-- **Input**: source URI + file path, optional section/position range
+- **Input**: source URL + file path, optional section/position range
 - **Output**: document content (scoped to the requested range)
 - **Use**: zoom in on a specific result, or zoom out to get surrounding context
 
@@ -113,7 +105,7 @@ Progressive disclosure: `read` with no range → TOC. `read` with a range → co
 
 Browse what's indexed.
 
-- **Input**: optional source URI
+- **Input**: optional source URL
 - **Output**: without a URI, returns all indexed sources. With a URI, returns files within that source.
 - **Use**: structural awareness — understanding coverage, gaps, and what knowledge exists before searching
 

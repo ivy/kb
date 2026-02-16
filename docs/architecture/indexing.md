@@ -91,7 +91,7 @@ Maps chunks to their source locations. Many provenance records can point to one 
 | Column | Purpose |
 |--------|---------|
 | `content_hash` | FK to chunks |
-| `source_uri` | Canonical URI of the source (FK to sources) |
+| `source_url` | Source URL (FK to sources) |
 | `file_path` | Path within the source |
 | `position` | Chunk's position within the file (ordering) |
 | `metadata` | JSONB — chunker-specific context (e.g., `{"heading_hierarchy": ["Architecture", "Data Model"]}` for Markdown, `{"symbol": "func NewClient", "package": "kb"}` for code) |
@@ -106,17 +106,17 @@ This separation means:
 
 ### Sources
 
-Tracks what's configured for indexing. Each source has a canonical URI that identifies it regardless of how it's accessed.
+Tracks what's configured for indexing. Each source is identified by its real URL.
 
 | Column | Purpose |
 |--------|---------|
-| `uri` | Canonical URI (e.g., `gitlab://grove/atlas`, `github://user/repo`, `file:///path/to/dir`) |
-| `kind` | Source type — determines which fetcher/indexer handles it (e.g., `gitlab`, `github`, `directory`) |
+| `url` | Source URL (e.g., `https://gitlab.example.com/grove/atlas`) — primary identity |
+| `kind` | Source type, inferred from host or explicit (`gitlab`, `github`, `directory`) |
 | `config` | Source-specific configuration (branch, paths, etc.) |
 | `last_indexed_ref` | Last successfully indexed version identifier |
 | `last_indexed_at` | Timestamp of last successful index |
 
-MVP implements the `gitlab` kind only. The URI scheme keeps the data model honest — adding a new source type means adding a fetcher, not changing the schema.
+MVP implements the `gitlab` kind only. Adding a new source type means adding a fetcher, not changing the schema. The URL is already globally unique — no invented URI scheme needed.
 
 ## Query Time
 
@@ -138,7 +138,7 @@ The "zoom out" capability — fetching neighbors or the full file — uses prove
 | Single datastore | PostgreSQL | pgvector for embeddings, River for jobs, chunks and provenance in one place. One backup, one connection. |
 | Content-addressable chunks | BLAKE3 hash as identity | Only embed what actually changed. Dedup across sources for free. |
 | Embeddings decoupled from chunks | Separate table, composite key (hash, model) | Swap or add embedding models without touching chunks or provenance. |
-| Canonical source URIs | `gitlab://`, `github://`, `file://` | Data model supports multiple source types without schema changes. MVP implements GitLab only. |
+| Real URLs as source identity | `https://gitlab.example.com/grove/atlas` | Globally unique, no invented URI scheme. Kind inferred from host. |
 | Tarball over git clone | GitLab archive API | No git history, no `.git` directory, lighter memory footprint. |
 | Structure-based chunking | Markdown headings/sections | Deterministic boundaries that don't shift when neighboring content changes. Heading hierarchy preserved for context. |
 | River for all async work | Two job types (reindex, embed) | One queue system, one set of concurrency knobs. Retries and backpressure built in. |
