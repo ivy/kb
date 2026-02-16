@@ -4,7 +4,7 @@ Vocabulary:
 
 - **Caller**: Any agent that queries KB for context (Claude Code session, CLAUDE.md agent, Obsidian agent, etc.)
 - **KB Agent**: The knowledge agent that receives queries, retrieves, synthesizes, and converses
-- **Human**: The person who configures what gets indexed and reviews behavior
+- **Admin**: Any agent or human that manages KB — configuring sources, triggering indexing, observing state
 
 ## Caller Stories
 
@@ -30,16 +30,27 @@ As a caller, I want to ask follow-up questions within the same session so I can 
 
 As a caller, I want to optionally specify which LLM the KB agent uses for synthesis so I can trade off cost, speed, and quality based on my needs.
 
-## Human Stories
+## Admin Stories
 
-### H1. Trigger indexing
+### A1. Manage sources
 
-As the human, I want to trigger indexing of new or updated repos so KB stays current as my repos change.
+As an admin, I want to add, list, and remove sources so I control what knowledge KB indexes.
+
+### A2. Trigger indexing
+
+As an admin, I want to trigger reindexing of a source (or all sources) so KB stays current when I know something changed.
+
+### A3. Check system health
+
+As an admin, I want to see KB's status — what's indexed, what jobs are running, whether webhooks are configured — so I can diagnose issues.
+
+### A4. Set up integrations
+
+As an admin, I want to configure webhooks and prerequisites so KB stays current automatically without manual reindexing.
 
 ## Deferred
 
 - **Access control / zone scoping** — not needed for single-human homestead MVP
 - **Upstream corrections** — MVP is read-only; corrections flow is a future concern
 - **Fine-grained index control** — repo-level config is sufficient for now; path/file-type filtering can come later
-- **Index observability dashboard** — provenance on answers (C3) covers freshness discovery per-query; dedicated status view can wait
 - **Non-GitLab sources** — all current sources (code repos, Obsidian vault, OpenClaw agents) are already Git repos pushed to GitLab
