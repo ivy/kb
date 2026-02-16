@@ -26,6 +26,10 @@ As a caller, I want every answer to include source repos, file paths, and last-i
 
 As a caller, I want to ask follow-up questions within the same session so I can refine my understanding without re-explaining my context each time.
 
+### C5. Choose a model
+
+As a caller, I want to optionally specify which LLM the KB agent uses for synthesis so I can trade off cost, speed, and quality based on my needs.
+
 ## Human Stories
 
 ### H1. Trigger indexing
