@@ -1,70 +1,172 @@
 # Phase 2: Storage
 
-**Goal:** Real database and embedding infrastructure with end-to-end data retrieval.
+**Goal:** Build minimal viable vector search: markdown files → chunks → embeddings → ranked search results.
 
-## Overview
+## The Big Picture
 
-Implement the storage layer for semantic search:
-- SQLite + sqlite-vec for vector storage
-- OpenAI embeddings via `text-embedding-3-small`
-- Vector similarity search
-- Seed data for validation
-- Server integration for real query responses
+```
+Markdown file → Chunks → Embeddings → Vector DB → Formatted Results
+     ↓            ↓          ↓            ↓             ↓
+  people/       "# Notes   [0.23,      SQLite +    Chunk excerpts
+  alice.md      > Alice     0.45,      sqlite-vec  with scores
+                handles     ...]                   (0.0-1.0)
+                security"
+```
 
-## End State
+**End state:** `curl Query "Who handles security?"` → get back formatted list of matching chunks with file paths and similarity scores.
 
-By the end of Phase 2, you can:
+## Key Simplifications
+
+This is a **prototype**, not production software:
+
+1. **No note storage** - files stay on disk, DB only stores chunks with `file_path` metadata
+2. **Raw search results** - Query returns formatted chunk list, not AI-synthesized answers (that's Phase 4)
+3. **Single hardcoded vault** - multi-vault support is Phase 3
+4. **Manual seeding** - run a script once to populate DB, no automatic sync
+5. **Minimal abstractions** - direct implementations, no interfaces until needed
+
+## Simplified Schema
+
+```sql
+-- Vault metadata (one row for now)
+CREATE TABLE vault (
+    id INTEGER PRIMARY KEY,
+    path TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL
+);
+
+-- Chunks (no note table - files stay on disk)
+CREATE TABLE chunk (
+    id INTEGER PRIMARY KEY,
+    vault_id INTEGER NOT NULL REFERENCES vault(id),
+    file_path TEXT NOT NULL,        -- e.g., "people/alice.md"
+    chunk_index INTEGER NOT NULL,
+    content TEXT NOT NULL,           -- Heading context + chunk text
+    token_count INTEGER NOT NULL,
+    UNIQUE(vault_id, file_path, chunk_index)
+);
+
+-- Vector embeddings (rowid maps to chunk.id)
+CREATE VIRTUAL TABLE chunk_vec USING vec0(
+    embedding float[3072]
+);
+```
+
+## Build Steps
+
+### 001: Chunking + Test Vault
+
+**Deliverables:**
+- `internal/chunk` package - heading-aware markdown splitter
+- `testdata/vault/` - 5 test markdown files
+- Unit tests
+
+**What it does:** 4096 token chunks with 150 token overlap, heading paths prepended
+
+**Time:** 1-2 hours
+
+---
+
+### 002: Database + Manual Seed
+
+**Deliverables:**
+- `internal/db` package - SQLite + sqlite-vec setup
+- `cmd/seed-testdata/main.go` - manual seeding script
+- Simple schema creation (no migrations framework)
+
+**What it does:**
+- Create vault + chunk + chunk_vec tables
+- Insert chunked test vault (with zero embeddings initially)
+- Run manually: `go run cmd/seed-testdata/main.go`
+
+**Time:** 2-3 hours
+
+---
+
+### 003: Embeddings
+
+**Deliverables:**
+- `internal/embed` package - OpenAI API client
+- Single-embedding support (batching can wait)
+
+**What it does:** `Embed(text) → []float32` using text-embedding-3-large
+
+**Time:** 1 hour
+
+---
+
+### 004: Search + Query RPC
+
+**Deliverables:**
+- `internal/search` package - query embedding + KNN + formatting
+- Wire `internal/server.Query()` to return real results
+- Update seed script to embed chunks (run once with API key)
+
+**What it does:**
+```
+Query "Who handles security?"
+→ Embed query
+→ KNN search
+→ Format results:
+
+Found 2 relevant chunks:
+
+1. people/alice.md (chunk 0, score: 0.89)
+   "Alice handles security and infrastructure..."
+
+2. meetings/2026-01.md (chunk 1, score: 0.76)
+   "Discussed security concerns with Alice..."
+
+Citations:
+- people/alice.md
+- meetings/2026-01.md
+```
+
+**Time:** 2-3 hours
+
+---
+
+### 005: Basic Polish (Optional)
+
+**Deliverables:**
+- Error handling (don't crash on missing files)
+- Query logging
+
+**Skip:** Automatic seeding, idempotency, file watching, performance tuning (Phase 3)
+
+**Time:** 30 minutes
+
+## Validation
+
+After completion:
+
 ```bash
+# One-time: seed the test vault
+OPENAI_API_KEY=xxx go run cmd/seed-testdata/main.go
+
 # Start server
 kb-server
 
-# Query via kb-mcp from Claude Code
-> Who handles security at Acme Corp?
-
-# Gets back actual search results
-"Found 2 relevant notes:
-- people/sean-johnson.md (similarity: 0.89)
-- meetings/2026-01-architecture-review.md (similarity: 0.76)"
+# Query
+curl --unix-socket /tmp/kb.sock \
+  http://localhost/kb.v1.KnowledgeBaseService/Query \
+  -H 'Content-Type: application/json' \
+  -d '{"question": "Who handles security?"}'
 ```
 
-Not synthesized by Claude yet (Phase 4), but **real data retrieval working**.
+Get back formatted chunk results. **That's Phase 2 complete.**
 
-## Package Breakdown
+## What This Doesn't Do
 
-| Package | Purpose | Time Estimate |
-|---------|---------|---------------|
-| `internal/db` | SQLite + sqlite-vec, schema, CRUD | ~1 hour |
-| `internal/embed` | OpenAI embeddings client | ~45 min |
-| `internal/search` | Vector similarity queries | ~45 min |
-| Integration | Seed data, wire to server | ~1 hour |
+- Automatic seeding or change detection (Phase 3)
+- Multi-vault support (Phase 3)
+- LLM-synthesized answers (Phase 4)
+- Production error handling, monitoring, optimization
+- Smart excerpts or result ranking beyond cosine similarity
 
-**Total:** ~3.5 hours
+Keep it simple. Prove vector search works. Build production features later.
 
-## Implementation Order
+## References
 
-```mermaid
-graph TB
-    DB[001: db package] --> Search[003: search package]
-    Embed[002: embed package] --> Search
-    Search --> Integrate[004: seed and integrate]
-```
-
-1. **db package** - Foundation for storage
-2. **embed package** - Can develop in parallel with db
-3. **search package** - Combines db + embed
-4. **seed and integrate** - Wire into server, validate end-to-end
-
-## Success Criteria
-
-- [ ] Database creates successfully at `${XDG_DATA_HOME}/kb/<vault-id>.sqlite`
-- [ ] Can insert/query vaults and notes
-- [ ] Can embed text via OpenAI API
-- [ ] Vector search returns ranked results
-- [ ] Server returns real search results (not stubs)
-- [ ] Seed vault with ~5 dummy notes validates the pipeline
-
-## Notes
-
-- **Walking skeleton principle**: Keep it working end-to-end at every step
-- **Claude synthesis** deferred to Phase 4 - this phase proves the data pipeline
-- **Vector store decision** (sqlite-vec vs alternatives) deferred - will evaluate libsql and others before committing
+- [ADR-003: Vector Store Selection](../../adrs/003-vector-store-selection.md) - why sqlite-vec
+- [Embedding Benchmark](../../research/embedding-benchmark.md) - cost/token analysis
