@@ -120,16 +120,7 @@ MVP implements the `gitlab` kind only. Adding a new source type means adding a f
 
 ## Query Time
 
-Not fully designed yet — this section describes the retrieval path that the KB agent will use to fulfill caller stories C1-C4.
-
-1. Caller sends a question with working context
-2. KB agent formulates a vector search query
-3. pgvector returns relevant chunks with similarity scores
-4. KB agent fetches provenance for each chunk (source, path, freshness)
-5. KB agent may fetch surrounding chunks or full documents for additional context
-6. KB agent synthesizes an answer with provenance citations
-
-The "zoom out" capability — fetching neighbors or the full file — uses provenance (repo, file_path, position) to reconstruct broader context when a chunk alone isn't sufficient.
+See [query.md](query.md) for the full query architecture — KB agent tools, retrieval strategy, sessions, and response format.
 
 ## Key Decisions
 
