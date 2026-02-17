@@ -10,7 +10,7 @@ LDFLAGS := -s -w \
   -X '$(MODULE)/internal/cli.buildTag=$(BUILD_TAG)' \
   -X '$(MODULE)/internal/cli.buildDate=$(BUILD_DATE)'
 
-.PHONY: build test test-unit lint clean
+.PHONY: build test test-unit test-integration lint clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/kb ./cmd/kb
@@ -19,7 +19,10 @@ test:
 	ginkgo ./...
 
 test-unit:
-	ginkgo --label-filter='!db' ./...
+	ginkgo --label-filter='!db && !integration' ./...
+
+test-integration:
+	ginkgo --label-filter='integration' ./...
 
 lint:
 	golangci-lint run
