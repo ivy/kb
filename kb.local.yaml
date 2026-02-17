@@ -1,13 +1,15 @@
 database:
-  url: postgres://kb:kb@postgres:5432/kb?sslmode=disable
+  url: postgres://kb:kb@127.0.0.1:5432/kb?sslmode=disable
 server:
-  listen: "0.0.0.0:8080"
+  listen: "127.0.0.1:8180"
 tailscale:
   enabled: false
 gitlab:
   token: ""
 embedding:
-  api_key: ""
+  provider: openai
+  model: text-embedding-3-large
+  api_key: ""  # set via KB_EMBEDDING_API_KEY env var
 workers:
   indexer: 1
   embedder: 1
@@ -17,3 +19,10 @@ log:
 sessions:
   path: /tmp/kb-sessions
   max: 10
+agent:
+  provider: openai
+  api_key: ""  # set via KB_AGENT_API_KEY env var
+  max_iterations: 15
+  thinking: none
+  temperature: 0.3
+  max_tokens: 16384
