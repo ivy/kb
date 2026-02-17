@@ -87,19 +87,63 @@ func (a *MRKLAgent) newLLM(model string) (llms.Model, error) {
 		}
 	}
 
+	var base llms.Model
+	var err error
+
 	switch a.cfg.Provider {
 	case "openai":
-		return openai.New(
+		base, err = openai.New(
 			openai.WithToken(a.cfg.APIKey),
 			openai.WithModel(model),
 		)
 	case "anthropic":
-		return anthropic.New(
+		base, err = anthropic.New(
 			anthropic.WithToken(a.cfg.APIKey),
 			anthropic.WithModel(model),
 		)
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider: %q", a.cfg.Provider)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if opts := thinkingOptions(a.cfg.Thinking); len(opts) > 0 {
+		return &thinkingLLM{Model: base, opts: opts}, nil
+	}
+
+	return base, nil
+}
+
+// thinkingLLM wraps an llms.Model to inject thinking options on every call.
+// The LangChainGo executor does not forward CallOptions to the underlying LLM,
+// so this wrapper ensures thinking configuration is applied to every
+// GenerateContent invocation.
+type thinkingLLM struct {
+	llms.Model
+	opts []llms.CallOption
+}
+
+func (t *thinkingLLM) GenerateContent(ctx context.Context, messages []llms.MessageContent, opts ...llms.CallOption) (*llms.ContentResponse, error) {
+	return t.Model.GenerateContent(ctx, messages, append(t.opts, opts...)...)
+}
+
+// thinkingOptions returns CallOptions for the given thinking mode string.
+// Supported modes: none, low, medium, high, auto.
+func thinkingOptions(mode string) []llms.CallOption {
+	switch strings.ToLower(mode) {
+	case "low":
+		return []llms.CallOption{llms.WithThinkingBudget(2048)}
+	case "medium":
+		return []llms.CallOption{llms.WithThinkingBudget(5120)}
+	case "high":
+		return []llms.CallOption{llms.WithThinkingBudget(10240)}
+	case "auto":
+		return []llms.CallOption{llms.WithThinkingMode(llms.ThinkingModeAuto)}
+	case "none", "":
+		return nil
+	default:
+		return nil
 	}
 }
 
