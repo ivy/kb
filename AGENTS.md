@@ -39,6 +39,8 @@ Tools are managed with `mise` (`mise.toml`). Run `mise install` to bootstrap.
 | Build | `make build` |
 | Test (all) | `make test` |
 | Test (no DB) | `make test-unit` |
+| Test (DB only) | `make test-db` |
+| Test (integration) | `make test-integration` |
 | Lint | `make lint` |
 | Verify before PR | `make lint && make test-unit` |
 

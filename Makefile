@@ -10,19 +10,25 @@ LDFLAGS := -s -w \
   -X '$(MODULE)/internal/cli.buildTag=$(BUILD_TAG)' \
   -X '$(MODULE)/internal/cli.buildDate=$(BUILD_DATE)'
 
-.PHONY: build test test-unit test-integration lint clean
+# Testcontainers (podman rootless) environment for integration/db tests.
+TC_ENV := DOCKER_HOST=unix:///run/user/$(shell id -u)/podman/podman.sock \
+          TESTCONTAINERS_RYUK_DISABLED=true
+
+.PHONY: build test test-unit test-db test-integration lint clean
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/kb ./cmd/kb
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/kb ./cmd/kb
 
-test:
-	ginkgo ./...
+test: test-unit test-db test-integration
 
 test-unit:
 	ginkgo --label-filter='!db && !integration' ./...
 
+test-db:
+	$(TC_ENV) ginkgo --label-filter='db' ./...
+
 test-integration:
-	ginkgo --label-filter='integration' ./...
+	$(TC_ENV) ginkgo --label-filter='integration' ./...
 
 lint:
 	golangci-lint run
