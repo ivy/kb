@@ -71,6 +71,7 @@ read grove/policy docs/supply-chain.md section 3
 ```
 
 The agent is responsible for:
+
 - **Retrieval strategy**: choosing which tools to use and in what order
 - **Context management**: reading only what it needs, not everything available
 - **Provenance judgment**: understanding that a chunk indexed yesterday is more trustworthy than one indexed six months ago
@@ -136,10 +137,12 @@ Use Markdown footnote syntax. Number footnotes sequentially. Each footnote inclu
 
 Format:
 ```
+
 The deployment uses canary releases with manual promotion[^1].
 
 [^1]: grove/atlas — docs/deploy.md (indexed 2026-02-15)
-  https://gitlab.example.com/grove/atlas/raw/abc123/docs/deploy.md
+  <https://gitlab.example.com/grove/atlas/raw/abc123/docs/deploy.md>
+
 ```
 
 If multiple claims come from the same source section, they can share a footnote. If they come from different sections of the same file, use separate footnotes.
@@ -171,7 +174,9 @@ Never fabricate an answer. Never synthesize from general knowledge. You answer f
 If a session URL is available, end your response with it so the caller knows multi-turn conversation is available:
 
 ```
+
 Continue at: POST /v1/sessions/{session_id}/ask
+
 ```
 
 ## Context from Prior Turns

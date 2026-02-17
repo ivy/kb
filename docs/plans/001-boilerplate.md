@@ -295,6 +295,7 @@ func (s *PGStore) Migrate(ctx context.Context) error
 No `Pool()` on the interface — it's a PostgreSQL implementation detail. The composition root accesses it through the concrete `*PGStore` type when wiring River. A SQLite deployment wouldn't have a pgx pool or River.
 
 **Why two interfaces:**
+
 - Vector storage and relational metadata have different swap profiles
 - **Swap just vectors**: PostgreSQL metadata + S3 Vectors/ChromaDB for embeddings (scale scenario)
 - **Swap everything**: SQLite + sqlite-vec for small/embedded deployments (no PostgreSQL at all)

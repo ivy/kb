@@ -99,6 +99,7 @@ Maps chunks to their source locations. Many provenance records can point to one 
 | `ref` | Version identifier at time of indexing (commit SHA for git sources) |
 
 This separation means:
+
 - **File renames are free.** Same content hash, new provenance record.
 - **File moves are free.** Same content hash, updated file path.
 - **Reorgs are free.** Only actual content changes trigger embedding work.

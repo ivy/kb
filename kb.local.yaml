@@ -1,23 +1,17 @@
 database:
   url: postgres://kb:kb@postgres:5432/kb?sslmode=disable
-
 tailscale:
   enabled: false
-
 gitlab:
   token: ""
-
 embedding:
   api_key: ""
-
 workers:
   indexer: 1
   embedder: 1
-
 log:
   level: debug
   format: text
-
 sessions:
   path: /tmp/kb-sessions
   max: 10
