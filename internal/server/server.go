@@ -48,6 +48,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
 }
 
+// ServeHTTP implements http.Handler for testing.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.mux.ServeHTTP(w, r)
+}
+
 // Addr returns the address the server is listening on, or nil if not yet started.
 func (s *Server) Addr() net.Addr {
 	s.mu.Lock()
