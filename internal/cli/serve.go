@@ -15,6 +15,7 @@ import (
 	"github.com/ivy/kb/internal/queue"
 	"github.com/ivy/kb/internal/server"
 	"github.com/ivy/kb/internal/session"
+	"github.com/ivy/kb/internal/source"
 	"github.com/ivy/kb/internal/store"
 )
 
@@ -49,7 +50,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	handlers := map[string]queue.HandlerFunc{
 		"reindex": func(ctx context.Context, payload []byte) error {
 			// Closure captures q, which is set after NewRiverQueue returns
-			return index.ReindexHandler(pgStore, q, cfg.GitLab)(ctx, payload)
+			return index.ReindexHandler(pgStore, q, source.FetchGitLab, cfg.GitLab)(ctx, payload)
 		},
 		"embed": embed.EmbedHandler(pgStore, cfg.Embedding),
 	}
