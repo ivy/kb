@@ -524,99 +524,192 @@ The session manager is still constructed and passed to the server (keeps the int
 
 ### Step 8: Tests
 
-#### Agent tools tests (`internal/agent/tools/*_test.go`)
+Tests follow BDD principles: `Describe` names the behavior/feature, `Context` sets up preconditions ("when...", "with..."), `It` states the expected outcome from the caller's perspective. Fakes for store/embedder/LLM keep tests fast and deterministic.
 
-Each tool gets a test file with fakes for the store/embedder:
+#### Agent tools (`internal/agent/tools/*_test.go`)
 
 ```
-Describe("search tool", func() {
-    It("embeds the query and returns provenance-only results", func() { ... })
-    It("limits results to 10", func() { ... })
-    Context("when embedding fails", func() {
-        It("returns an error string", func() { ... })
+Describe("search", func() {
+    // The agent's primary retrieval path. Takes a natural language query,
+    // embeds it, and returns provenance metadata for the nearest matches.
+
+    Context("with indexed content about deployment patterns", func() {
+        It("returns source URLs, file paths, and heading hierarchy", func() { ... })
+        It("omits chunk content from results", func() { ... })
+        It("returns at most 10 results", func() { ... })
+    })
+
+    Context("when the query has no close matches", func() {
+        It("returns an empty result with a 'no results' message", func() { ... })
+    })
+
+    Context("when the embedding API is unreachable", func() {
+        It("returns an error describing the failure", func() { ... })
     })
 })
 
-Describe("lookup tool", func() {
-    It("searches by keyword and returns provenance-only results", func() { ... })
-    Context("when no results match", func() {
-        It("returns a clear 'no results' message", func() { ... })
+Describe("lookup", func() {
+    // Exact keyword/identifier search — complements semantic search for
+    // precise terms like incident IDs, service names, config keys.
+
+    Context("with a chunk containing the keyword 'INC-002'", func() {
+        It("returns the matching chunk's provenance metadata", func() { ... })
+        It("ranks exact matches above partial matches", func() { ... })
+    })
+
+    Context("when no chunks contain the keyword", func() {
+        It("returns an empty result with a 'no results' message", func() { ... })
     })
 })
 
-Describe("read tool", func() {
-    It("returns TOC when no position is specified", func() { ... })
-    It("returns chunk content for a specific position", func() { ... })
-    It("returns chunk content for a position range", func() { ... })
-    Context("when the document doesn't exist", func() {
-        It("returns a clear error message", func() { ... })
+Describe("read", func() {
+    // Progressive document fetch. Without a position, returns a table of
+    // contents built from heading hierarchy. With a position/range, returns
+    // the chunk content at those positions.
+
+    Context("with a 4-chunk document about deployment", func() {
+        Context("when called without a position", func() {
+            It("returns the heading hierarchy as a table of contents", func() { ... })
+        })
+
+        Context("when called with a single position", func() {
+            It("returns the chunk content at that position", func() { ... })
+        })
+
+        Context("when called with a position range like '1-3'", func() {
+            It("returns chunk content for positions 1 through 3", func() { ... })
+        })
+    })
+
+    Context("when the source URL and file path don't match any provenance", func() {
+        It("returns a 'document not found' message", func() { ... })
     })
 })
 
-Describe("list tool", func() {
-    It("returns all sources when input is empty", func() { ... })
-    It("returns files for a specific source URL", func() { ... })
-    Context("when the source doesn't exist", func() {
+Describe("list", func() {
+    // Structural awareness — lets the agent understand what's indexed
+    // before concluding something doesn't exist.
+
+    Context("when called with no input", func() {
+        It("returns all indexed sources with their kind and last-indexed date", func() { ... })
+    })
+
+    Context("when called with a source URL", func() {
+        It("returns the file paths indexed from that source", func() { ... })
+    })
+
+    Context("when called with an unknown source URL", func() {
         It("returns an empty list", func() { ... })
     })
 })
 ```
 
-#### Agent tests (`internal/agent/agent_test.go`)
+#### Agent (`internal/agent/agent_test.go`)
 
-Test the `Ask()` method with a fake LLM that returns canned responses. This verifies the wiring between the agent, executor, and tools — not the LLM's reasoning.
-
-LangChainGo agents use `llms.Model` interface. Create a `fakeLLM` that returns predetermined tool calls and final answers.
+Test the agent's coordination of LLM and tools, not the LLM's reasoning. Uses a `fakeLLM` that returns predetermined tool calls and final answers.
 
 ```
-Describe("MRKLAgent", func() {
-    It("returns an answer from the agent executor", func() { ... })
-    It("passes conversation history as context", func() { ... })
-    It("uses the model override when provided", func() { ... })
-    It("defaults to config model when no override", func() { ... })
-    Context("when the LLM provider is unsupported", func() {
-        It("returns an error", func() { ... })
+Describe("asking the knowledge agent", func() {
+    // The agent receives a question, uses tools to retrieve knowledge,
+    // and returns a synthesized answer. These tests verify the orchestration.
+
+    Context("with a question that matches indexed content", func() {
+        // fakeLLM returns: Action: search → Action: read → Final Answer
+        It("returns the synthesized answer from the agent loop", func() { ... })
+    })
+
+    Context("with conversation history from a prior session turn", func() {
+        // fakeLLM receives history prepended to the input
+        It("includes prior turns in the prompt sent to the LLM", func() { ... })
+    })
+
+    Context("with an X-Model override", func() {
+        It("constructs the LLM with the overridden model", func() { ... })
+    })
+
+    Context("without a model override", func() {
+        It("uses the default model for the configured provider", func() { ... })
+    })
+
+    Context("with an unsupported provider in config", func() {
+        It("returns an error before calling any tools", func() { ... })
     })
 })
 ```
 
-#### Handler tests (`internal/server/server_test.go`)
+#### HTTP handlers (`internal/server/server_test.go`)
 
 ```
 Describe("POST /v1/ask", func() {
-    It("passes the request body to the agent as a question", func() { ... })
-    It("returns the agent's answer as text/markdown", func() { ... })
-    It("passes the X-Model header to the agent", func() { ... })
-    It("returns 400 for an empty body", func() { ... })
+    // Text in, Markdown out. The handler reads the body as a question,
+    // passes it to the agent, and returns the answer.
+
+    Context("with a plain text question in the body", func() {
+        It("returns the agent's answer as text/markdown", func() { ... })
+    })
+
+    Context("with an X-Model header", func() {
+        It("forwards the model name to the agent", func() { ... })
+    })
+
+    Context("with an empty request body", func() {
+        It("returns 400 Bad Request", func() { ... })
+    })
 })
 
 Describe("POST /v1/sessions/:id/ask", func() {
-    It("calls the agent with the question (stateless until sessions land)", func() { ... })
+    // Session route is wired but stateless until sessions are implemented.
+
+    Context("with a plain text question", func() {
+        It("returns the agent's answer (stateless until sessions land)", func() { ... })
+    })
 })
 ```
 
-#### Store method tests (add to `internal/store/store_test.go`)
+#### Store methods (add to `internal/store/store_test.go`)
 
 ```
-Describe("LookupByKeyword", Label("db"), func() {
-    It("finds chunks matching the keyword", func() { ... })
-    It("ranks results by relevance", func() { ... })
-    It("returns provenance metadata with results", func() { ... })
-    Context("when no chunks match", func() {
+Describe("keyword search", Label("db"), func() {
+    // Full-text search via PostgreSQL tsvector/tsquery. Used by the
+    // agent's lookup tool for exact keyword/identifier matches.
+
+    Context("with chunks containing 'canary deployment' and 'blue-green deployment'", func() {
+        Context("when searching for 'canary'", func() {
+            It("returns the canary chunk ranked above the blue-green chunk", func() { ... })
+            It("includes provenance metadata in each result", func() { ... })
+        })
+    })
+
+    Context("when no chunks match the keyword", func() {
         It("returns an empty slice", func() { ... })
     })
 })
 
-Describe("GetDocument", Label("db"), func() {
-    It("returns chunks for a source file ordered by position", func() { ... })
-    Context("when the file doesn't exist", func() {
+Describe("document retrieval", Label("db"), func() {
+    // Fetches all chunks for a source file, ordered by position.
+    // Used by the agent's read tool for progressive document disclosure.
+
+    Context("with a 3-chunk document at positions 0, 1, 2", func() {
+        It("returns chunks ordered by position", func() { ... })
+        It("includes the chunk content", func() { ... })
+    })
+
+    Context("when the source URL and file path have no provenance records", func() {
         It("returns an empty slice", func() { ... })
     })
 })
 
-Describe("ListFiles", Label("db"), func() {
-    It("returns distinct file paths for a source", func() { ... })
-    It("returns an empty slice for unknown sources", func() { ... })
+Describe("file listing", Label("db"), func() {
+    // Lists distinct file paths within a source. Used by the agent's
+    // list tool to show what's indexed for a given repo.
+
+    Context("with provenance records for 3 files in the same source", func() {
+        It("returns the 3 distinct file paths sorted alphabetically", func() { ... })
+    })
+
+    Context("when the source has no provenance records", func() {
+        It("returns an empty slice", func() { ... })
+    })
 })
 ```
 
