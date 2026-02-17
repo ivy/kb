@@ -1,0 +1,4 @@
+[tools]
+go = "1"
+golangci-lint = "2"
+"go:github.com/onsi/ginkgo/v2/ginkgo" = "2.28"

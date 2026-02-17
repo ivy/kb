@@ -25,3 +25,6 @@ coverage.html
 # Local config (if any)
 .env
 .env.local
+
+# Build output
+/bin/
