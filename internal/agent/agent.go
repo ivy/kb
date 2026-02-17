@@ -50,8 +50,8 @@ func (a *MRKLAgent) Ask(ctx context.Context, question string, history []session.
 		agenttools.NewListTool(a.store),
 	}
 
-	ag := agents.NewOneShotAgent(llm, agentTools,
-		agents.WithPromptPrefix(systemPrompt),
+	ag := agents.NewOpenAIFunctionsAgent(llm, agentTools,
+		agents.NewOpenAIOption().WithSystemMessage(systemPrompt),
 	)
 
 	maxIter := a.cfg.MaxIterations
@@ -109,23 +109,23 @@ func (a *MRKLAgent) newLLM(model string) (llms.Model, error) {
 	}
 
 	if opts := thinkingOptions(a.cfg.Thinking); len(opts) > 0 {
-		return &thinkingLLM{Model: base, opts: opts}, nil
+		return &wrappedLLM{Model: base, opts: opts}, nil
 	}
 
 	return base, nil
 }
 
-// thinkingLLM wraps an llms.Model to inject thinking options on every call.
-// The LangChainGo executor does not forward CallOptions to the underlying LLM,
+// wrappedLLM wraps an llms.Model to inject call options on every call.
+// LangChainGo's executor doesn't forward CallOptions to the LLM,
 // so this wrapper ensures thinking configuration is applied to every
 // GenerateContent invocation.
-type thinkingLLM struct {
+type wrappedLLM struct {
 	llms.Model
 	opts []llms.CallOption
 }
 
-func (t *thinkingLLM) GenerateContent(ctx context.Context, messages []llms.MessageContent, opts ...llms.CallOption) (*llms.ContentResponse, error) {
-	return t.Model.GenerateContent(ctx, messages, append(t.opts, opts...)...)
+func (w *wrappedLLM) GenerateContent(ctx context.Context, messages []llms.MessageContent, opts ...llms.CallOption) (*llms.ContentResponse, error) {
+	return w.Model.GenerateContent(ctx, messages, append(w.opts, opts...)...)
 }
 
 // thinkingOptions returns CallOptions for the given thinking mode string.
