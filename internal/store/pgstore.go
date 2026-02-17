@@ -131,12 +131,55 @@ func (s *PGStore) ListProvenance(ctx context.Context, sourceURL string) ([]Prove
 	return result, rows.Err()
 }
 
-func (s *PGStore) LookupByKeyword(_ context.Context, _ string, _ int) ([]SearchResult, error) {
-	return nil, errors.New("not implemented")
+func (s *PGStore) LookupByKeyword(ctx context.Context, keyword string, limit int) ([]SearchResult, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT c.content_hash, c.content,
+		        ts_rank(to_tsvector('english', c.content), plainto_tsquery('english', $1)) AS score,
+		        p.source_url, p.file_path, p.metadata, p.indexed_at, p.ref
+		 FROM chunks c
+		 JOIN provenance p ON p.content_hash = c.content_hash
+		 WHERE to_tsvector('english', c.content) @@ plainto_tsquery('english', $1)
+		 ORDER BY score DESC
+		 LIMIT $2`,
+		keyword, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SearchResult
+	for rows.Next() {
+		var r SearchResult
+		if err := rows.Scan(&r.ContentHash, &r.Content, &r.Score, &r.SourceURL, &r.FilePath, &r.Metadata, &r.IndexedAt, &r.Ref); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
 }
 
-func (s *PGStore) GetDocument(_ context.Context, _, _ string) ([]ProvenanceRow, error) {
-	return nil, errors.New("not implemented")
+func (s *PGStore) GetDocument(ctx context.Context, sourceURL, filePath string) ([]ProvenanceRow, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT p.content_hash, c.content
+		 FROM provenance p
+		 JOIN chunks c ON c.content_hash = p.content_hash
+		 WHERE p.source_url = $1 AND p.file_path = $2
+		 ORDER BY p.position`,
+		sourceURL, filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []ProvenanceRow
+	for rows.Next() {
+		var r ProvenanceRow
+		if err := rows.Scan(&r.ContentHash, &r.Content); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
 }
 
 func (s *PGStore) AddSource(ctx context.Context, url, kind string, cfg json.RawMessage) error {
@@ -204,7 +247,7 @@ func (s *PGStore) UpsertEmbedding(ctx context.Context, contentHash []byte, model
 func (s *PGStore) SearchSimilar(ctx context.Context, vector []float32, limit int) ([]SearchResult, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT e.content_hash, c.content, (e.embedding <=> $1) AS score,
-		        p.source_url, p.file_path
+		        p.source_url, p.file_path, p.metadata, p.indexed_at, p.ref
 		 FROM embeddings e
 		 JOIN chunks c ON c.content_hash = e.content_hash
 		 JOIN provenance p ON p.content_hash = e.content_hash
@@ -219,7 +262,7 @@ func (s *PGStore) SearchSimilar(ctx context.Context, vector []float32, limit int
 	var results []SearchResult
 	for rows.Next() {
 		var r SearchResult
-		if err := rows.Scan(&r.ContentHash, &r.Content, &r.Score, &r.SourceURL, &r.FilePath); err != nil {
+		if err := rows.Scan(&r.ContentHash, &r.Content, &r.Score, &r.SourceURL, &r.FilePath, &r.Metadata, &r.IndexedAt, &r.Ref); err != nil {
 			return nil, err
 		}
 		results = append(results, r)
@@ -231,6 +274,28 @@ func (s *PGStore) DeleteEmbeddings(ctx context.Context, contentHash []byte) erro
 	_, err := s.pool.Exec(ctx,
 		`DELETE FROM embeddings WHERE content_hash = $1`, contentHash)
 	return err
+}
+
+func (s *PGStore) ListFiles(ctx context.Context, sourceURL string) ([]string, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT DISTINCT file_path FROM provenance
+		 WHERE source_url = $1
+		 ORDER BY file_path`,
+		sourceURL)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var files []string
+	for rows.Next() {
+		var f string
+		if err := rows.Scan(&f); err != nil {
+			return nil, err
+		}
+		files = append(files, f)
+	}
+	return files, rows.Err()
 }
 
 // pgvectorSlice formats a float32 slice as a pgvector-compatible string.
