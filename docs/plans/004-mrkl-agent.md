@@ -71,7 +71,7 @@ type Agent struct {
     Provider     string  `mapstructure:"provider"`      // "openai" or "anthropic"
     APIKey       string  `mapstructure:"api_key"`        // LLM API key
     DefaultModel string  `mapstructure:"default_model"`  // set automatically per provider if empty
-    MaxIter      int     `mapstructure:"max_iter"`        // max agent loop iterations, default 15
+    MaxIterations int    `mapstructure:"max_iterations"`   // max agent loop iterations, default 15
     Thinking     string  `mapstructure:"thinking"`        // "none", "low", "medium", "high", "auto"
     Temperature  float64 `mapstructure:"temperature"`    // sampling temperature, default 0.3
     MaxTokens    int     `mapstructure:"max_tokens"`      // max response tokens, default 16384
@@ -83,7 +83,7 @@ type Agent struct {
 | Provider | Default Model |
 |----------|---------------|
 | `openai` | `gpt-5.2` |
-| `anthropic` | `claude-sonnet-4-5-20250929` |
+| `anthropic` | `claude-sonnet-4-5` |
 
 **Thinking modes:** LangChainGo abstracts both providers behind `llms.WithThinkingMode()` — maps to Anthropic's extended thinking and OpenAI's `reasoning_effort`. The executor doesn't pass `CallOption` through to the LLM, so thinking mode is baked into the LLM at construction time via config. Default is `none` — the agent's task (retrieval + synthesis) doesn't require deep reasoning, and thinking tokens cost extra latency.
 
@@ -109,7 +109,7 @@ agent:
   provider: openai
   api_key: ""               # or KB_AGENT_API_KEY env var
   # default_model: gpt-5.2  # auto-set per provider if omitted
-  max_iter: 15
+  max_iterations: 15
   thinking: none
   temperature: 0.3
   max_tokens: 16384
@@ -369,7 +369,7 @@ func (a *MRKLAgent) Ask(ctx context.Context, question string, history []session.
 
     // 4. Create executor
     executor := agents.NewExecutor(agent,
-        agents.WithMaxIterations(a.cfg.MaxIter),
+        agents.WithMaxIterations(a.cfg.MaxIterations),
     )
 
     // 5. Build input with conversation history
@@ -395,7 +395,7 @@ func (a *MRKLAgent) newLLM(model string) (llms.Model, error) {
         case "openai":
             model = "gpt-5.2"
         case "anthropic":
-            model = "claude-sonnet-4-5-20250929"
+            model = "claude-sonnet-4-5"
         }
     }
 
@@ -745,7 +745,7 @@ agent:
   provider: openai
   api_key: ""       # or KB_AGENT_API_KEY env var
   default_model: gpt-4.1
-  max_iter: 15
+  max_iterations: 15
 ```
 
 Add to `env.sample`:
