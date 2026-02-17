@@ -410,6 +410,136 @@ var _ = Describe("PGStore", Label("db"), func() {
 		})
 	})
 
+	Describe("keyword search", func() {
+		BeforeEach(func() { truncate() })
+
+		Context("with chunks containing 'canary deployment' and 'blue-green deployment'", func() {
+			BeforeEach(func() {
+				addSource("https://example.com/repo")
+				hash1 := []byte("canary-hash")
+				Expect(pgStore.UpsertChunk(ctx, hash1, "We use canary deployment for gradual rollouts")).To(Succeed())
+				Expect(pgStore.UpsertProvenance(ctx, store.Provenance{
+					ContentHash: hash1,
+					SourceURL:   "https://example.com/repo",
+					FilePath:    "deploy.md",
+					Position:    0,
+					Metadata:    json.RawMessage(`{"headings":["# Deploy"]}`),
+					Ref:         "abc123",
+				})).To(Succeed())
+
+				hash2 := []byte("blue-green-hash")
+				Expect(pgStore.UpsertChunk(ctx, hash2, "Blue-green deployment switches traffic between environments")).To(Succeed())
+				Expect(pgStore.UpsertProvenance(ctx, store.Provenance{
+					ContentHash: hash2,
+					SourceURL:   "https://example.com/repo",
+					FilePath:    "deploy.md",
+					Position:    1,
+					Metadata:    json.RawMessage(`{"headings":["# Deploy"]}`),
+					Ref:         "abc123",
+				})).To(Succeed())
+			})
+
+			Context("when searching for 'canary'", func() {
+				It("returns the canary chunk ranked above the blue-green chunk", func() {
+					results, err := pgStore.LookupByKeyword(ctx, "canary", 10)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(results).To(HaveLen(1))
+					Expect(results[0].Content).To(ContainSubstring("canary"))
+				})
+
+				It("includes provenance metadata in each result", func() {
+					results, err := pgStore.LookupByKeyword(ctx, "canary", 10)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(results).NotTo(BeEmpty())
+					Expect(results[0].SourceURL).To(Equal("https://example.com/repo"))
+					Expect(results[0].FilePath).To(Equal("deploy.md"))
+					Expect(results[0].Ref).To(Equal("abc123"))
+					Expect(results[0].Metadata).To(MatchJSON(`{"headings":["# Deploy"]}`))
+				})
+			})
+		})
+
+		Context("when no chunks match the keyword", func() {
+			It("returns an empty slice", func() {
+				results, err := pgStore.LookupByKeyword(ctx, "nonexistent-keyword", 10)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(BeEmpty())
+			})
+		})
+	})
+
+	Describe("document retrieval", func() {
+		BeforeEach(func() { truncate() })
+
+		Context("with a 3-chunk document at positions 0, 1, 2", func() {
+			BeforeEach(func() {
+				addSource("https://example.com/repo")
+				for i := 0; i < 3; i++ {
+					hash := []byte(fmt.Sprintf("doc-hash-%d", i))
+					content := fmt.Sprintf("chunk content %d", i)
+					Expect(pgStore.UpsertChunk(ctx, hash, content)).To(Succeed())
+					Expect(pgStore.UpsertProvenance(ctx, store.Provenance{
+						ContentHash: hash,
+						SourceURL:   "https://example.com/repo",
+						FilePath:    "docs/guide.md",
+						Position:    i,
+					})).To(Succeed())
+				}
+			})
+
+			It("returns chunks ordered by position", func() {
+				rows, err := pgStore.GetDocument(ctx, "https://example.com/repo", "docs/guide.md")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rows).To(HaveLen(3))
+				Expect(rows[0].Content).To(Equal("chunk content 0"))
+				Expect(rows[1].Content).To(Equal("chunk content 1"))
+				Expect(rows[2].Content).To(Equal("chunk content 2"))
+			})
+		})
+
+		Context("when the source URL and file path have no provenance records", func() {
+			It("returns an empty slice", func() {
+				rows, err := pgStore.GetDocument(ctx, "https://example.com/nope", "nope.md")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rows).To(BeEmpty())
+			})
+		})
+	})
+
+	Describe("file listing", func() {
+		BeforeEach(func() { truncate() })
+
+		Context("with provenance records for 3 files in the same source", func() {
+			BeforeEach(func() {
+				addSource("https://example.com/repo")
+				for i, name := range []string{"README.md", "docs/a.md", "docs/b.md"} {
+					hash := []byte(fmt.Sprintf("file-hash-%d", i))
+					Expect(pgStore.UpsertChunk(ctx, hash, "content")).To(Succeed())
+					Expect(pgStore.UpsertProvenance(ctx, store.Provenance{
+						ContentHash: hash,
+						SourceURL:   "https://example.com/repo",
+						FilePath:    name,
+						Position:    0,
+					})).To(Succeed())
+				}
+			})
+
+			It("returns the 3 distinct file paths sorted alphabetically", func() {
+				files, err := pgStore.ListFiles(ctx, "https://example.com/repo")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(files).To(Equal([]string{"README.md", "docs/a.md", "docs/b.md"}))
+			})
+		})
+
+		Context("when the source has no provenance records", func() {
+			It("returns an empty slice", func() {
+				files, err := pgStore.ListFiles(ctx, "https://example.com/empty")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(files).To(BeEmpty())
+			})
+		})
+	})
+
 	Describe("source management", func() {
 		BeforeEach(func() { truncate() })
 
