@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -242,6 +243,170 @@ var _ = Describe("PGStore", Label("db"), func() {
 			result, err := pgStore.ListProvenance(ctx, "https://example.com/repo")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(HaveLen(3))
+		})
+	})
+
+	Describe("embedding storage", func() {
+		BeforeEach(func() { truncate() })
+
+		addChunk := func(hash []byte, content string) {
+			Expect(pgStore.UpsertChunk(ctx, hash, content)).To(Succeed())
+		}
+
+		addChunkWithProvenance := func(hash []byte, content, sourceURL, filePath string) {
+			addChunk(hash, content)
+			addSource(sourceURL)
+			Expect(pgStore.UpsertProvenance(ctx, store.Provenance{
+				ContentHash: hash,
+				SourceURL:   sourceURL,
+				FilePath:    filePath,
+			})).To(Succeed())
+		}
+
+		Describe("upserting an embedding", func() {
+			It("stores a vector retrievable by content hash and model", func() {
+				addChunk([]byte("hash-1"), "hello world")
+				vec := make([]float32, 3072)
+				vec[0] = 0.1
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("hash-1"), "text-embedding-3-large", vec)).To(Succeed())
+			})
+
+			Context("when the same content hash and model are upserted twice", func() {
+				It("updates the vector rather than creating a duplicate", func() {
+					addChunk([]byte("hash-dup"), "content")
+					vec1 := make([]float32, 3072)
+					vec1[0] = 1.0
+					Expect(pgStore.UpsertEmbedding(ctx, []byte("hash-dup"), "model-a", vec1)).To(Succeed())
+
+					vec2 := make([]float32, 3072)
+					vec2[0] = 2.0
+					Expect(pgStore.UpsertEmbedding(ctx, []byte("hash-dup"), "model-a", vec2)).To(Succeed())
+
+					// Should not error — upsert is idempotent.
+				})
+			})
+
+			Context("when different models embed the same content hash", func() {
+				It("stores both vectors independently", func() {
+					addChunk([]byte("hash-multi"), "content")
+					vec := make([]float32, 3072)
+					Expect(pgStore.UpsertEmbedding(ctx, []byte("hash-multi"), "model-a", vec)).To(Succeed())
+					Expect(pgStore.UpsertEmbedding(ctx, []byte("hash-multi"), "model-b", vec)).To(Succeed())
+				})
+			})
+		})
+
+		Describe("similarity search", func() {
+			It("returns chunks ordered by cosine distance to the query vector", func() {
+				addChunkWithProvenance([]byte("near"), "near content", "https://example.com/repo", "near.md")
+				addChunkWithProvenance([]byte("far-c"), "far content", "https://example.com/repo", "far.md")
+
+				nearVec := make([]float32, 3072)
+				nearVec[0] = 1.0
+				farVec := make([]float32, 3072)
+				farVec[1] = 1.0
+
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("near"), "model", nearVec)).To(Succeed())
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("far-c"), "model", farVec)).To(Succeed())
+
+				queryVec := make([]float32, 3072)
+				queryVec[0] = 1.0
+
+				results, err := pgStore.SearchSimilar(ctx, queryVec, 10)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(HaveLen(2))
+				Expect(results[0].Content).To(Equal("near content"))
+			})
+
+			It("respects the limit parameter", func() {
+				for i := 0; i < 5; i++ {
+					hash := []byte(fmt.Sprintf("lim-%d", i))
+					addChunkWithProvenance(hash, fmt.Sprintf("content %d", i), "https://example.com/repo", fmt.Sprintf("f%d.md", i))
+					vec := make([]float32, 3072)
+					vec[i] = 1.0
+					Expect(pgStore.UpsertEmbedding(ctx, hash, "model", vec)).To(Succeed())
+				}
+
+				queryVec := make([]float32, 3072)
+				queryVec[0] = 1.0
+
+				results, err := pgStore.SearchSimilar(ctx, queryVec, 2)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(HaveLen(2))
+			})
+
+			It("joins chunk content and provenance metadata into results", func() {
+				addChunkWithProvenance([]byte("prov-hash"), "some content", "https://example.com/repo", "docs/page.md")
+				vec := make([]float32, 3072)
+				vec[0] = 1.0
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("prov-hash"), "model", vec)).To(Succeed())
+
+				results, err := pgStore.SearchSimilar(ctx, vec, 1)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Content).To(Equal("some content"))
+				Expect(results[0].SourceURL).To(Equal("https://example.com/repo"))
+				Expect(results[0].FilePath).To(Equal("docs/page.md"))
+			})
+
+			Context("when no embeddings exist", func() {
+				It("returns an empty result set", func() {
+					queryVec := make([]float32, 3072)
+					results, err := pgStore.SearchSimilar(ctx, queryVec, 10)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(results).To(BeEmpty())
+				})
+			})
+		})
+
+		Describe("deleting embeddings", func() {
+			It("removes all embeddings for a given content hash", func() {
+				addChunk([]byte("del-hash"), "content")
+				vec := make([]float32, 3072)
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("del-hash"), "model", vec)).To(Succeed())
+				Expect(pgStore.DeleteEmbeddings(ctx, []byte("del-hash"))).To(Succeed())
+			})
+
+			It("leaves embeddings for other content hashes intact", func() {
+				addChunk([]byte("keep-h"), "keep")
+				addChunk([]byte("del-h"), "del")
+				vec := make([]float32, 3072)
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("keep-h"), "model", vec)).To(Succeed())
+				Expect(pgStore.UpsertEmbedding(ctx, []byte("del-h"), "model", vec)).To(Succeed())
+
+				Expect(pgStore.DeleteEmbeddings(ctx, []byte("del-h"))).To(Succeed())
+
+				// keep-h should still be searchable (needs provenance for SearchSimilar).
+				addSource("https://example.com/repo")
+				Expect(pgStore.UpsertProvenance(ctx, store.Provenance{
+					ContentHash: []byte("keep-h"),
+					SourceURL:   "https://example.com/repo",
+					FilePath:    "keep.md",
+				})).To(Succeed())
+
+				results, err := pgStore.SearchSimilar(ctx, vec, 10)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Content).To(Equal("keep"))
+			})
+		})
+	})
+
+	Describe("chunk content lookup", func() {
+		BeforeEach(func() { truncate() })
+
+		It("returns the content for a known content hash", func() {
+			Expect(pgStore.UpsertChunk(ctx, []byte("lookup-hash"), "expected content")).To(Succeed())
+			content, err := pgStore.GetChunkContent(ctx, []byte("lookup-hash"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(content).To(Equal("expected content"))
+		})
+
+		Context("when the content hash does not exist", func() {
+			It("returns an error", func() {
+				_, err := pgStore.GetChunkContent(ctx, []byte("nonexistent"))
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 

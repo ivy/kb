@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/ivy/kb/internal/store"
@@ -117,6 +118,19 @@ func (f *FakeStore) UpdateSourceIndexed(_ context.Context, _, _ string) error {
 		return f.err
 	}
 	return nil
+}
+
+func (f *FakeStore) GetChunkContent(_ context.Context, contentHash []byte) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	content, ok := f.chunks[string(contentHash)]
+	if !ok {
+		return "", fmt.Errorf("chunk not found")
+	}
+	return content, nil
 }
 
 // Compile-time check

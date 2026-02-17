@@ -3,6 +3,7 @@ package index_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/ivy/kb/internal/queue"
@@ -150,6 +151,19 @@ func (f *FakeStore) UpdateSourceIndexed(_ context.Context, _ string, ref string)
 	defer f.mu.Unlock()
 	f.indexedRef = ref
 	return nil
+}
+
+func (f *FakeStore) GetChunkContent(_ context.Context, contentHash []byte) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	content, ok := f.chunks[string(contentHash)]
+	if !ok {
+		return "", fmt.Errorf("chunk not found")
+	}
+	return content, nil
 }
 
 var _ store.Store = (*FakeStore)(nil)
