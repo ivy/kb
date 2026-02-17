@@ -38,6 +38,13 @@ func rootCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("loading config: %w", err)
 			}
+			// CLI flags override config file values
+			if v, _ := cmd.Flags().GetString("log-level"); v != "" {
+				cfg.Log.Level = v
+			}
+			if v, _ := cmd.Flags().GetString("log-format"); v != "" {
+				cfg.Log.Format = v
+			}
 			setupLogging(cfg.Log)
 			cmd.SetContext(context.WithValue(cmd.Context(), configKey, cfg))
 			return nil
@@ -47,8 +54,8 @@ func rootCmd() *cobra.Command {
 	}
 
 	cmd.PersistentFlags().StringVar(&configPath, "config", "", "config file path (default: kb.yaml)")
-	cmd.PersistentFlags().String("log-level", "info", "log level (debug, info, warn, error)")
-	cmd.PersistentFlags().String("log-format", "text", "log format (text, journal)")
+	cmd.PersistentFlags().String("log-level", "", "log level (debug, info, warn, error)")
+	cmd.PersistentFlags().String("log-format", "", "log format (text, journal)")
 
 	cmd.AddCommand(
 		versionCmd(),
