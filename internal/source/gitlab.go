@@ -78,10 +78,15 @@ func extractArchive(r io.Reader) (*Result, error) {
 			return nil, fmt.Errorf("source: reading tar entry: %w", err)
 		}
 
+		// Skip PAX global/extended headers — these are tar metadata, not files.
+		if hdr.Typeflag == tar.TypeXGlobalHeader || hdr.Typeflag == tar.TypeXHeader {
+			continue
+		}
+
 		name := filepath.Clean(hdr.Name)
 
-		// Determine the root prefix from the first entry (GitLab archives
-		// always have a top-level directory like project-ref-sha/).
+		// Determine the root prefix from the first real directory entry
+		// (GitLab archives always have a top-level directory like project-ref-sha/).
 		if rootPrefix == "" {
 			parts := strings.SplitN(name, string(filepath.Separator), 2)
 			rootPrefix = parts[0]
