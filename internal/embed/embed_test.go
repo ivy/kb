@@ -57,6 +57,7 @@ func (f *fakeStore) AddSource(context.Context, string, string, json.RawMessage) 
 func (f *fakeStore) ListSources(context.Context) ([]store.Source, error)              { return nil, nil }
 func (f *fakeStore) RemoveSource(context.Context, string) error                       { return nil }
 func (f *fakeStore) UpdateSourceIndexed(context.Context, string, string) error        { return nil }
+func (f *fakeStore) ListFiles(context.Context, string) ([]string, error)              { return nil, nil }
 
 var _ store.Store = (*fakeStore)(nil)
 

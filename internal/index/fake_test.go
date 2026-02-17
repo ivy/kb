@@ -166,6 +166,13 @@ func (f *FakeStore) GetChunkContent(_ context.Context, contentHash []byte) (stri
 	return content, nil
 }
 
+func (f *FakeStore) ListFiles(_ context.Context, _ string) ([]string, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return nil, nil
+}
+
 var _ store.Store = (*FakeStore)(nil)
 
 // FakeQueue implements queue.Queue by collecting enqueued jobs.
