@@ -54,7 +54,13 @@ type Embedding struct {
 
 // Agent holds agent configuration.
 type Agent struct {
-	DefaultModel string `mapstructure:"default_model"`
+	Provider      string  `mapstructure:"provider"`
+	APIKey        string  `mapstructure:"api_key"`
+	DefaultModel  string  `mapstructure:"default_model"`
+	MaxIterations int     `mapstructure:"max_iterations"`
+	Thinking      string  `mapstructure:"thinking"`
+	Temperature   float64 `mapstructure:"temperature"`
+	MaxTokens     int     `mapstructure:"max_tokens"`
 }
 
 // Sessions holds session management configuration.
