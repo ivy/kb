@@ -64,7 +64,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 	sessions := session.NewLRUManager(cfg.Sessions)
 
 	// 5. Agent
-	ag := agent.New(pgStore, pgStore, cfg.Agent)
+	embedClient := embed.NewClient(cfg.Embedding)
+	ag := agent.New(pgStore, pgStore, embedClient, cfg.Agent)
 
 	// 6. Server
 	srv := server.New(ag, sessions, q, cfg.Server, cfg.Tailscale)
