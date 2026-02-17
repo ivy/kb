@@ -5,20 +5,26 @@ Knowledge service for a personal homestead. Indexes GitLab repos, serves synthes
 - See `docs/vision.md` for full context and goals
 - See `docs/core-principles.md` for decision filters
 
+## Local Instructions
+
+@AGENTS.local.md
+
 ## Repo Map
 
 ```
 cmd/kb/          CLI entrypoint (cobra)
 internal/
+  agent/         Knowledge agent (query synthesis)
+  chunk/         Markdown chunker (heading hierarchy, token limits)
   cli/           Command definitions (serve, setup, sources, reindex, status, version)
   config/        Viper-based config loading
-  store/         PostgreSQL + pgvector persistence
-  queue/         River-based async job queue
-  index/         GitLab repo fetcher, markdown chunker, reindex handler
   embed/         Embedding handler
-  agent/         Knowledge agent (query synthesis)
+  index/         Reindex handler, coordinates source→chunk→embed pipeline
+  queue/         River-based async job queue
   server/        HTTP server (Tailscale-aware)
   session/       LRU session manager
+  source/        Source adapters (GitLab archive fetcher)
+  store/         PostgreSQL + pgvector persistence
 docs/
   architecture/  Per-subsystem design docs (agent, auth, indexing, query, admin)
   plans/         Implementation plans
@@ -34,19 +40,15 @@ Tools are managed with `mise` (`mise.toml`). Run `mise install` to bootstrap.
 | Test (all) | `make test` |
 | Test (no DB) | `make test-unit` |
 | Lint | `make lint` |
-| Local stack | `podman compose up --build` |
+| Verify before PR | `make lint && make test-unit` |
 
 See `Makefile` for build flags and ldflags.
-
-### Local Dev Stack
-
-`docker-compose.yaml` runs PostgreSQL (pgvector/pg17) + the kb binary. Config is bind-mounted from `kb.local.yaml`. The app currently exits with "not implemented" from `NewPGStore` — expected until the store is wired.
 
 ## Testing
 
 Tests use **Ginkgo** with **Gomega** matchers. Each package has a `_suite_test.go` bootstrap file. Fakes are hand-written (not generated) and live in `fake_test.go` alongside the tests that use them.
 
-- Test fixtures: `internal/index/testdata/`
+- Test fixtures: `internal/index/testdata/`, `internal/chunk/testdata/`, `internal/source/testdata/`
 - DB-dependent tests are excluded from `make test-unit` via `--label-filter='!db'`
 
 ## Architecture

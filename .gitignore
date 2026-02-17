@@ -25,6 +25,8 @@ coverage.html
 # Local config (if any)
 .env
 .env.local
+AGENTS.local.md
+CLAUDE.local.md
 
 # Build output
 /bin/
