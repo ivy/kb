@@ -146,8 +146,12 @@ func (s *PGStore) ListSources(ctx context.Context) ([]Source, error) {
 	var result []Source
 	for rows.Next() {
 		var src Source
-		if err := rows.Scan(&src.URL, &src.Kind, &src.Config, &src.LastRef, &src.LastIndexed); err != nil {
+		var lastRef *string
+		if err := rows.Scan(&src.URL, &src.Kind, &src.Config, &lastRef, &src.LastIndexed); err != nil {
 			return nil, err
+		}
+		if lastRef != nil {
+			src.LastRef = *lastRef
 		}
 		result = append(result, src)
 	}
