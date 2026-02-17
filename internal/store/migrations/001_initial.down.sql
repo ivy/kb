@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS provenance;
+DROP TABLE IF EXISTS sources;
+DROP TABLE IF EXISTS chunks;

@@ -57,6 +57,21 @@ func (f *FakeStore) DeleteProvenance(_ context.Context, _ string, _ []byte) erro
 	return nil
 }
 
+func (f *FakeStore) ListProvenance(_ context.Context, sourceURL string) ([]store.Provenance, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var result []store.Provenance
+	for _, p := range f.provenance {
+		if p.SourceURL == sourceURL {
+			result = append(result, p)
+		}
+	}
+	return result, nil
+}
+
 func (f *FakeStore) LookupByKeyword(_ context.Context, _ string, _ int) ([]store.SearchResult, error) {
 	if f.err != nil {
 		return nil, f.err
