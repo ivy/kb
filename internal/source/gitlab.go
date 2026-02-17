@@ -44,7 +44,7 @@ func FetchGitLab(ctx context.Context, sourceURL, token string) (*Result, error) 
 	if err != nil {
 		return nil, fmt.Errorf("source: fetching archive: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("source: GET %s returned %d", archiveURL, resp.StatusCode)
@@ -60,7 +60,7 @@ func extractArchive(r io.Reader) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("source: decompressing archive: %w", err)
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	tr := tar.NewReader(gz)
 	result := &Result{

@@ -7,7 +7,7 @@ import (
 
 func (s *Server) handleLLMsTxt(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprint(w, `# KB
+	_, _ = fmt.Fprint(w, `# KB
 
 > Knowledge base service for team documentation.
 
