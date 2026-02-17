@@ -52,7 +52,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			// Closure captures q, which is set after NewRiverQueue returns
 			return index.ReindexHandler(pgStore, q, source.FetchGitLab, cfg.GitLab)(ctx, payload)
 		},
-		"embed": embed.EmbedHandler(pgStore, cfg.Embedding),
+		"embed": embed.EmbedHandler(pgStore, pgStore, cfg.Embedding),
 	}
 
 	q, err = queue.NewRiverQueue(pgStore.Pool(), cfg.Workers, handlers)

@@ -19,6 +19,7 @@ type Store interface {
 	ListSources(ctx context.Context) ([]Source, error)
 	RemoveSource(ctx context.Context, url string) error
 	UpdateSourceIndexed(ctx context.Context, url, ref string) error
+	GetChunkContent(ctx context.Context, contentHash []byte) (string, error)
 }
 
 // Provenance links a chunk to its source location.

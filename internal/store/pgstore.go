@@ -12,6 +12,8 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 
 	"github.com/ivy/kb/internal/config"
 )
@@ -39,7 +41,7 @@ func (s *PGStore) Pool() *pgxpool.Pool {
 }
 
 // Migrate runs schema migrations using golang-migrate with embedded SQL files.
-func (s *PGStore) Migrate(_ context.Context) error {
+func (s *PGStore) Migrate(ctx context.Context) error {
 	src, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
 		return fmt.Errorf("creating migration source: %w", err)
@@ -60,6 +62,15 @@ func (s *PGStore) Migrate(_ context.Context) error {
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("running migrations: %w", err)
+	}
+
+	// Run River schema migrations (idempotent, tracks its own state).
+	rm, err := rivermigrate.New(riverpgxv5.New(s.pool), nil)
+	if err != nil {
+		return fmt.Errorf("creating river migrator: %w", err)
+	}
+	if _, err := rm.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
+		return fmt.Errorf("running river migrations: %w", err)
 	}
 
 	return nil
@@ -169,18 +180,71 @@ func (s *PGStore) UpdateSourceIndexed(ctx context.Context, url, ref string) erro
 	return err
 }
 
+func (s *PGStore) GetChunkContent(ctx context.Context, contentHash []byte) (string, error) {
+	var content string
+	err := s.pool.QueryRow(ctx,
+		`SELECT content FROM chunks WHERE content_hash = $1`, contentHash).Scan(&content)
+	if err != nil {
+		return "", fmt.Errorf("getting chunk content: %w", err)
+	}
+	return content, nil
+}
+
 // VectorStore interface implementation
 
-func (s *PGStore) UpsertEmbedding(_ context.Context, _ []byte, _ string, _ []float32) error {
-	return errors.New("not implemented")
+func (s *PGStore) UpsertEmbedding(ctx context.Context, contentHash []byte, model string, vector []float32) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO embeddings (content_hash, model, embedding)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (content_hash, model) DO UPDATE SET embedding = $3`,
+		contentHash, model, pgvectorSlice(vector))
+	return err
 }
 
-func (s *PGStore) SearchSimilar(_ context.Context, _ []float32, _ int) ([]SearchResult, error) {
-	return nil, errors.New("not implemented")
+func (s *PGStore) SearchSimilar(ctx context.Context, vector []float32, limit int) ([]SearchResult, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT e.content_hash, c.content, (e.embedding <=> $1) AS score,
+		        p.source_url, p.file_path
+		 FROM embeddings e
+		 JOIN chunks c ON c.content_hash = e.content_hash
+		 JOIN provenance p ON p.content_hash = e.content_hash
+		 ORDER BY e.embedding <=> $1
+		 LIMIT $2`,
+		pgvectorSlice(vector), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SearchResult
+	for rows.Next() {
+		var r SearchResult
+		if err := rows.Scan(&r.ContentHash, &r.Content, &r.Score, &r.SourceURL, &r.FilePath); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
 }
 
-func (s *PGStore) DeleteEmbeddings(_ context.Context, _ []byte) error {
-	return errors.New("not implemented")
+func (s *PGStore) DeleteEmbeddings(ctx context.Context, contentHash []byte) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM embeddings WHERE content_hash = $1`, contentHash)
+	return err
+}
+
+// pgvectorSlice formats a float32 slice as a pgvector-compatible string.
+func pgvectorSlice(v []float32) string {
+	buf := make([]byte, 0, len(v)*12+2)
+	buf = append(buf, '[')
+	for i, f := range v {
+		if i > 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, fmt.Sprintf("%g", f)...)
+	}
+	buf = append(buf, ']')
+	return string(buf)
 }
 
 var (
