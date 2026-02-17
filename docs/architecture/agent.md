@@ -142,7 +142,7 @@ The deployment uses canary releases with manual promotion[^1].
 
 [^1]: "The canary count is set to 1 in the Nomad job spec, with a manual
   promotion step triggered after health checks pass for 5 minutes."
-  §Canary Config
+  §Deployment > Canary Config
   <https://gitlab.example.com/grove/atlas/raw/abc123/docs/deploy.md>
 
 ```
