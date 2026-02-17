@@ -81,7 +81,7 @@ func (a *MRKLAgent) newLLM(model string) (llms.Model, error) {
 	if model == "" {
 		switch a.cfg.Provider {
 		case "openai":
-			model = "gpt-4.1"
+			model = "gpt-5.2"
 		case "anthropic":
 			model = "claude-sonnet-4-5"
 		}
