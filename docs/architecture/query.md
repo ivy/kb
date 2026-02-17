@@ -31,7 +31,7 @@ the current deployment approach — canary, blue-green, or rolling.
 
 ### Response Format
 
-Markdown with footnotes. Provenance as navigable URLs.
+Markdown with Wikipedia-style footnotes. Each footnote carries a **relevant quote** from the source so callers can evaluate claims without following links, catch hallucination, and see what was true at index time.
 
 ```
 Atlas uses canary deployments via Nomad job specs. The canary
@@ -42,9 +42,12 @@ a Nomad job dispatch[^2].
 If you have follow-up questions, continue at:
 POST /v1/sessions/a1b2c3
 
-[^1]: grove/atlas — docs/deploy.md (indexed 2026-02-15)
+[^1]: "The canary count is set to 1 in the Nomad job spec, with a manual
+  promotion step triggered after health checks pass for 5 minutes."
+  §Canary Config
   https://gitlab.example.com/grove/atlas/raw/abc123/docs/deploy.md
-[^2]: grove/atlas — .gitlab-ci.yml (indexed 2026-02-15)
+[^2]: "deploy: stage triggers nomad job dispatch with canary strategy"
+  §deploy
   https://gitlab.example.com/grove/atlas/raw/abc123/.gitlab-ci.yml
 ```
 
@@ -88,7 +91,7 @@ Session history is prepended to the agent's context on each turn, giving it the 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Text in / Markdown out | Plain HTTP, no JSON for queries | Principle #1. Agents produce and consume text naturally. |
-| Footnote-style provenance | Markdown footnotes with navigable URLs | Agents read footnotes naturally. URLs point to the exact indexed commit. |
+| Wikipedia-style footnotes | Quote + source path + URL | Callers evaluate claims inline without following links. Quotes catch hallucination and preserve what was true at index time. |
 | `/ask` over `/query` | Conversational framing | Primes callers to write natural questions, not keyword searches. |
 | Server-side sessions | LRU + JSONL filesystem store | Stateless callers, simple follow-ups. Go interface allows swapping storage later. |
 | No streaming | Synchronous request/response | Agents consume complete messages. Streaming benefits humans, not callers. |

@@ -130,20 +130,24 @@ Use this to understand coverage before concluding that something doesn't exist. 
 ### Every claim must have a citation
 
 Use Markdown footnote syntax. Number footnotes sequentially. Each footnote includes:
-- Source name (the repo/project name derived from the source URL)
-- File path within the source
-- Indexed timestamp
-- A navigable URL pointing to the exact commit that was indexed
+- A **relevant quote** from the source — the exact passage supporting the claim, trimmed to the key sentence(s). This lets callers evaluate the claim without following the link, catches hallucination (quote doesn't match claim = something's wrong), and preserves what was true at index time if the source later changes.
+- **Section heading** — for orientation within the document (the URL already identifies the project and file)
+- **Navigable URL** — pointing to the exact commit that was indexed
+- **Staleness warning** — only when the source was indexed more than 30 days ago
 
 Format:
 ```
 
 The deployment uses canary releases with manual promotion[^1].
 
-[^1]: grove/atlas — docs/deploy.md (indexed 2026-02-15)
+[^1]: "The canary count is set to 1 in the Nomad job spec, with a manual
+  promotion step triggered after health checks pass for 5 minutes."
+  §Canary Config
   <https://gitlab.example.com/grove/atlas/raw/abc123/docs/deploy.md>
 
 ```
+
+Trim quotes to the relevant passage — one or two sentences that directly support the claim. Do not quote entire paragraphs. If the source is a code block or configuration snippet, quote the relevant lines verbatim.
 
 If multiple claims come from the same source section, they can share a footnote. If they come from different sections of the same file, use separate footnotes.
 
@@ -153,7 +157,7 @@ Your job is to answer the question, not to relay what you found. Read the source
 
 ### Flag staleness
 
-If a source was indexed more than 30 days ago, note this in your answer. Use language like "(this source was indexed 45 days ago; it may be outdated)". When the indexed_at timestamp is recent, you do not need to mention it — recency is the default expectation.
+If a source was indexed more than 30 days ago, add a staleness warning to its footnote. Format: `(indexed 45 days ago — may be outdated)` after the URL. When the indexed_at timestamp is recent, omit it — recency is the default expectation. If the entire answer depends on stale sources, call this out in the prose, not just the footnotes.
 
 ### Flag conflicts
 
