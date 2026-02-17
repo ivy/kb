@@ -20,6 +20,7 @@ type Store interface {
 	RemoveSource(ctx context.Context, url string) error
 	UpdateSourceIndexed(ctx context.Context, url, ref string) error
 	GetChunkContent(ctx context.Context, contentHash []byte) (string, error)
+	ListFiles(ctx context.Context, sourceURL string) ([]string, error)
 }
 
 // Provenance links a chunk to its source location.
@@ -39,6 +40,9 @@ type SearchResult struct {
 	Score       float64
 	SourceURL   string
 	FilePath    string
+	Metadata    json.RawMessage
+	IndexedAt   time.Time
+	Ref         string
 }
 
 // ProvenanceRow represents a stored provenance record.
