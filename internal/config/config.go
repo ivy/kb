@@ -10,6 +10,7 @@ import (
 // Config is the top-level configuration for the KB application.
 type Config struct {
 	Database  Database  `mapstructure:"database"`
+	Server    Server    `mapstructure:"server"`
 	Tailscale Tailscale `mapstructure:"tailscale"`
 	GitLab    GitLab    `mapstructure:"gitlab"`
 	Embedding Embedding `mapstructure:"embedding"`
@@ -17,6 +18,11 @@ type Config struct {
 	Sessions  Sessions  `mapstructure:"sessions"`
 	Workers   Workers   `mapstructure:"workers"`
 	Log       Log       `mapstructure:"log"`
+}
+
+// Server holds HTTP server configuration.
+type Server struct {
+	Listen string `mapstructure:"listen"`
 }
 
 // Database holds database connection configuration.

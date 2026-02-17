@@ -1,5 +1,7 @@
 database:
   url: postgres://kb:kb@postgres:5432/kb?sslmode=disable
+server:
+  listen: "0.0.0.0:8080"
 tailscale:
   enabled: false
 gitlab:

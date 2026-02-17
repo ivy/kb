@@ -67,7 +67,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	ag := agent.New(pgStore, pgStore, cfg.Agent)
 
 	// 6. Server
-	srv := server.New(ag, sessions, q, cfg.Tailscale)
+	srv := server.New(ag, sessions, q, cfg.Server, cfg.Tailscale)
 
 	slog.Info("starting kb server")
 

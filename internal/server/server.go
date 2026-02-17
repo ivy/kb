@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 
 	"github.com/ivy/kb/internal/agent"
 	"github.com/ivy/kb/internal/config"
@@ -18,17 +19,22 @@ type Server struct {
 	agent    agent.Agent
 	sessions session.Manager
 	queue    queue.Queue
-	cfg      config.Tailscale
+	tsCfg    config.Tailscale
+	srvCfg   config.Server
 	mux      *http.ServeMux
+
+	mu   sync.Mutex
+	addr net.Addr
 }
 
 // New creates a new Server with the given dependencies.
-func New(ag agent.Agent, sess session.Manager, q queue.Queue, cfg config.Tailscale) *Server {
+func New(ag agent.Agent, sess session.Manager, q queue.Queue, srvCfg config.Server, tsCfg config.Tailscale) *Server {
 	s := &Server{
 		agent:    ag,
 		sessions: sess,
 		queue:    q,
-		cfg:      cfg,
+		tsCfg:    tsCfg,
+		srvCfg:   srvCfg,
 		mux:      http.NewServeMux(),
 	}
 	s.registerRoutes()
@@ -42,6 +48,13 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /llms.txt", s.handleLLMsTxt)
 }
 
+// Addr returns the address the server is listening on, or nil if not yet started.
+func (s *Server) Addr() net.Addr {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.addr
+}
+
 // Serve starts the HTTP server and blocks until ctx is cancelled.
 func (s *Server) Serve(ctx context.Context) error {
 	handler := s.authMiddleware(s.mux)
@@ -53,15 +66,23 @@ func (s *Server) Serve(ctx context.Context) error {
 	var ln net.Listener
 	var err error
 
-	if s.cfg.Enabled {
+	if s.tsCfg.Enabled {
 		// TODO: tsnet listener
 		return errors.New("tsnet listener not implemented")
 	}
 
-	ln, err = net.Listen("tcp", ":8080")
+	addr := s.srvCfg.Listen
+	if addr == "" {
+		addr = "127.0.0.1:8080"
+	}
+	ln, err = net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
+
+	s.mu.Lock()
+	s.addr = ln.Addr()
+	s.mu.Unlock()
 
 	slog.Info("server listening", "addr", ln.Addr())
 
