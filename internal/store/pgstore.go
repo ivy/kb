@@ -95,6 +95,9 @@ func (s *PGStore) DeleteOrphanedChunks(ctx context.Context) (int64, error) {
 }
 
 func (s *PGStore) UpsertProvenance(ctx context.Context, p Provenance) error {
+	if p.Metadata == nil {
+		p.Metadata = json.RawMessage("{}")
+	}
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO provenance (content_hash, source_url, file_path, position, metadata, ref)
 		 VALUES ($1, $2, $3, $4, $5, $6)
