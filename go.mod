@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/pkoukk/tiktoken-go v0.1.8
